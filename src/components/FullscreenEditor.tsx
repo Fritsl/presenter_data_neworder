@@ -21,6 +21,7 @@ export const FullscreenEditor = ({
   isNew = false,
 }: FullscreenEditorProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Added file input ref
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const { 
@@ -92,6 +93,35 @@ export const FullscreenEditor = ({
       console.error('Error in handleImageUpload:', err);
       setError('Failed to upload image');
       setIsUploading(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input change event triggered');
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      console.log('File selected:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: new Date(file.lastModified).toISOString()
+      });
+
+      if (!file.type.startsWith('image/')) {
+        setError('Only image files are allowed');
+        return;
+      }
+
+      setIsUploading(true);
+      setError(null);
+      handleImageUpload(file);
+    }
+  };
+
+  const triggerFileUpload = () => {
+    console.log('Triggering file input click');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -174,29 +204,15 @@ export const FullscreenEditor = ({
             </div>
           )}
           <div className="mb-4">
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleFileInputChange}
+              className="hidden"
+              ref={fileInputRef}
+            />
             <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = async (e) => {
-                  console.log('File input change event triggered');
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) {
-                    console.log('File selected:', { 
-                      name: file.name, 
-                      type: file.type, 
-                      size: file.size,
-                      lastModified: new Date(file.lastModified).toISOString()
-                    });
-                    await handleImageUpload(file);
-                  }
-                };
-                console.log('Triggering file input click');
-                input.click();
-                // Clean up the temporary input element
-                setTimeout(() => input.remove(), 100);
-              }}
+              onClick={triggerFileUpload}
               disabled={isUploading}
               className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
