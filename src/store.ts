@@ -173,14 +173,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       const projectId = urlParams.get('project');
       if (!projectId) return;
 
-      // Find the note to move and its current theme
+      // Find the note to move
       const noteToMove = findNoteById(get().notes, id);
       if (!noteToMove) return;
       
-      // Get all notes at the target level to calculate new position
+      // Get all sequence records at the target level
       let query = supabase
-        .from('notes')
-        .select('id, position')
+        .from('note_sequences')
+        .select('id, note_id, sequence')
         .eq('project_id', projectId);
 
       // Handle null and non-null parent_id cases separately
@@ -190,30 +190,61 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         query = query.eq('parent_id', parentId);
       }
 
-      const { data: siblingNotes } = await query.order('position');
+      const { data: siblingSequences } = await query.order('sequence');
 
-      // Calculate new position
-      let newPosition: number;
-      if (!siblingNotes || siblingNotes.length === 0) {
-        newPosition = 0;
+      // Calculate new sequence
+      let newSequence: number;
+      if (!siblingSequences || siblingSequences.length === 0) {
+        newSequence = 10000;
       } else if (index === 0) {
-        newPosition = siblingNotes[0].position - 1;
-      } else if (index >= siblingNotes.length) {
-        newPosition = siblingNotes[siblingNotes.length - 1].position + 1;
+        newSequence = siblingSequences[0].sequence - 10000;
+      } else if (index >= siblingSequences.length) {
+        newSequence = siblingSequences[siblingSequences.length - 1].sequence + 10000;
       } else {
-        newPosition = (siblingNotes[index - 1].position + siblingNotes[index].position) / 2;
+        newSequence = Math.floor((siblingSequences[index - 1].sequence + siblingSequences[index].sequence) / 2);
       }
 
-      // Update note in database with new position, parent_id, and theme
-      const { error } = await supabase
+      // First update the parent_id in the notes table
+      const { error: noteError } = await supabase
         .from('notes')
         .update({
-          parent_id: parentId,
-          position: newPosition
+          parent_id: parentId
         })
         .eq('id', id);
 
-      if (error) throw error;
+      if (noteError) throw noteError;
+
+      // Check if a sequence record already exists for this note
+      const { data: existingSequence } = await supabase
+        .from('note_sequences')
+        .select()
+        .eq('note_id', id)
+        .maybeSingle();
+
+      if (existingSequence) {
+        // Update existing sequence record
+        const { error: updateError } = await supabase
+          .from('note_sequences')
+          .update({
+            parent_id: parentId,
+            sequence: newSequence
+          })
+          .eq('note_id', id);
+          
+        if (updateError) throw updateError;
+      } else {
+        // Create new sequence record
+        const { error: insertError } = await supabase
+          .from('note_sequences')
+          .insert({
+            project_id: projectId,
+            parent_id: parentId,
+            note_id: id,
+            sequence: newSequence
+          });
+          
+        if (insertError) throw insertError;
+      }
 
       // Update local state
       set(state => {
@@ -407,46 +438,64 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       return;
     }
 
-    // Get the highest position for notes in the current context
-    const { data: lastNote } = await supabase
-      .from('notes')
-      .select('position')
+    // Get the highest sequence number for notes in the current context
+    const { data: lastSequence } = await supabase
+      .from('note_sequences')
+      .select('sequence')
       .eq('project_id', currentProject.id)
       .eq('parent_id', parentId === null ? null : parentId)
-      .order('position', { ascending: false })
+      .order('sequence', { ascending: false })
       .limit(1);
 
-    const position = (lastNote?.[0]?.position ?? -1) + 1;
+    const sequence = (lastSequence?.[0]?.sequence ?? 0) + 10000;
 
+    const noteId = generateId();
+    
     const newNote: Note = {
-      id: generateId(),
+      id: noteId,
       content: '',
       children: [],
       isEditing: true,
       unsavedContent: '',
-      position,
       user_id: userData.user.id,
       is_discussion: false,
       project_id: currentProject.id,
       images: []
     };
 
+    // First insert the note
     const { data, error } = await supabase
       .from('notes')
       .insert({
-        id: newNote.id,
-        content: newNote.content,
+        id: noteId,
+        content: '',
         parent_id: parentId,
         user_id: userData.user.id,
         is_discussion: false,
-        project_id: currentProject.id,
-        position
+        project_id: currentProject.id
       })
       .select()
       .single();
 
     if (error) {
       console.error('Error adding note:', error);
+      return;
+    }
+    
+    // Then insert the sequence record
+    const { error: sequenceError } = await supabase
+      .from('note_sequences')
+      .insert({
+        project_id: currentProject.id,
+        parent_id: parentId,
+        note_id: noteId,
+        sequence: sequence
+      });
+      
+    if (sequenceError) {
+      console.error('Error adding note sequence:', sequenceError);
+      // Try to clean up the note if sequence creation failed
+      await supabase.from('notes').delete().eq('id', noteId);
       return;
     }
 
@@ -738,7 +787,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
           projects: existingSettings
         });
 
-        // Load notes and their images for the current project
+        // Load notes, sequences, and images for current project
         const { data: notes, error } = await supabase
           .from('notes')
           .select(`
@@ -746,31 +795,69 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             images:note_images(*)
           `)
           .eq('user_id', userData.user.id)
-          .eq('project_id', currentProject.id)
-          .order('position');
+          .eq('project_id', currentProject.id);
 
         if (error) {
           console.error('Error loading notes:', error);
           return;
         }
 
-        // Convert flat structure to tree
+        // Load sequence data
+        const { data: sequences, error: seqError } = await supabase
+          .from('note_sequences')
+          .select('*')
+          .eq('project_id', currentProject.id)
+          .order('sequence');
+
+        if (seqError) {
+          console.error('Error loading sequences:', seqError);
+          return;
+        }
+
+        // Create a map from note ID to sequence
+        const sequenceMap = new Map();
+        sequences?.forEach(seq => {
+          sequenceMap.set(seq.note_id, seq.sequence);
+        });
+
+        // Create ordered list of notes
         const noteMap = new Map(notes?.map(note => ({
           ...note,
           images: note.images?.sort((a, b) => a.position - b.position) || [],
           children: []
         })).map(note => [note.id, note]) ?? []);
-        const rootNotes: Note[] = [];
-
+        
+        // Group notes by parent ID for sorting
+        const notesByParent = new Map<string | null, Note[]>();
+        
         notes?.forEach(note => {
+          const parentId = note.parent_id || null;
+          if (!notesByParent.has(parentId)) {
+            notesByParent.set(parentId, []);
+          }
           const noteWithChildren = noteMap.get(note.id)!;
-          if (note.parent_id) {
-            const parent = noteMap.get(note.parent_id);
+          notesByParent.get(parentId)!.push(noteWithChildren);
+        });
+        
+        // Sort each group by sequence
+        notesByParent.forEach((notes, parentId) => {
+          notes.sort((a, b) => {
+            const seqA = sequenceMap.get(a.id) || 0;
+            const seqB = sequenceMap.get(b.id) || 0;
+            return seqA - seqB;
+          });
+        });
+        
+        // Build the tree
+        const rootNotes: Note[] = notesByParent.get(null) || [];
+        
+        // Assign children to each note
+        notesByParent.forEach((childNotes, parentId) => {
+          if (parentId !== null) {
+            const parent = noteMap.get(parentId);
             if (parent) {
-              parent.children.push(noteWithChildren);
+              parent.children = childNotes;
             }
-          } else {
-            rootNotes.push(noteWithChildren);
           }
         });
 
@@ -845,29 +932,67 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
           images:note_images(*)
         `)
         .eq('user_id', userData.user.id)
-        .eq('project_id', projectId)
-        .order('position');
+        .eq('project_id', projectId);
 
       if (error) {
         throw new Error('Failed to load notes');
       }
 
-      // Convert flat structure to tree
+      // Load sequence data
+      const { data: sequences, error: seqError } = await supabase
+        .from('note_sequences')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('sequence');
+
+      if (seqError) {
+        console.error('Error loading sequences:', seqError);
+        throw new Error('Failed to load note ordering');
+      }
+
+      // Create a map from note ID to sequence
+      const sequenceMap = new Map();
+      sequences?.forEach(seq => {
+        sequenceMap.set(seq.note_id, seq.sequence);
+      });
+
+      // Create ordered list of notes
       const noteMap = new Map(notes?.map(note => ({
         ...note,
         images: note.images?.sort((a, b) => a.position - b.position) || [],
         children: []
       })).map(note => [note.id, note]) ?? []);
-      const rootNotes: Note[] = [];
-
+      
+      // Group notes by parent ID for sorting
+      const notesByParent = new Map<string | null, Note[]>();
+      
       notes?.forEach(note => {
-        const noteWithChildren = noteMap.get(note.id);
-        if (noteWithChildren) {
-          if (note.parent_id && noteMap.has(note.parent_id)) {
-            const parent = noteMap.get(note.parent_id);
-            parent?.children.push(noteWithChildren);
-          } else {
-            rootNotes.push(noteWithChildren);
+        const parentId = note.parent_id || null;
+        if (!notesByParent.has(parentId)) {
+          notesByParent.set(parentId, []);
+        }
+        const noteWithChildren = noteMap.get(note.id)!;
+        notesByParent.get(parentId)!.push(noteWithChildren);
+      });
+      
+      // Sort each group by sequence
+      notesByParent.forEach((notes, parentId) => {
+        notes.sort((a, b) => {
+          const seqA = sequenceMap.get(a.id) || 0;
+          const seqB = sequenceMap.get(b.id) || 0;
+          return seqA - seqB;
+        });
+      });
+      
+      // Build the tree
+      const rootNotes: Note[] = notesByParent.get(null) || [];
+      
+      // Assign children to each note
+      notesByParent.forEach((childNotes, parentId) => {
+        if (parentId !== null) {
+          const parent = noteMap.get(parentId);
+          if (parent) {
+            parent.children = childNotes;
           }
         }
       });

@@ -4,7 +4,6 @@ export interface Note {
   children: Note[];
   isEditing: boolean;
   unsavedContent?: string;
-  position: number;
   sequence_number?: number;
   user_id: string;
   project_id: string;
