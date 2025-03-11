@@ -23,7 +23,7 @@ export const FullscreenEditor = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const { saveNote } = useNoteStore();
+  const { saveNote, toggleDiscussion } = useNoteStore();
 
   const handleImageUpload = async (file: File) => {
     console.log('Starting image upload process', { fileName: file.name, fileSize: file.size });
