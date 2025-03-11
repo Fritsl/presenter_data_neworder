@@ -98,9 +98,21 @@ export const FullscreenEditor = ({
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('File input change event triggered', {
+      event: e.type,
       hasFiles: e.target.files && e.target.files.length > 0,
       fileCount: e.target.files?.length || 0,
-      targetElement: e.target
+      target: {
+        id: e.target.id,
+        name: e.target.name,
+        type: e.target.type,
+        value: e.target.value,
+        files: e.target.files ? Array.from(e.target.files).map(f => ({
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          lastModified: new Date(f.lastModified).toISOString()
+        })) : []
+      }
     });
 
     if (e.target.files && e.target.files.length > 0) {
@@ -126,11 +138,51 @@ export const FullscreenEditor = ({
   };
 
   const triggerFileUpload = () => {
-    console.log('Triggering file input click');
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    } else {
-      console.error('File input reference is null');
+    console.log('Triggering file input click', {
+      fileInputExists: !!fileInputRef.current,
+      fileInputType: fileInputRef.current ? typeof fileInputRef.current : 'N/A',
+      fileInputAttributes: fileInputRef.current ? {
+        type: fileInputRef.current.type,
+        accept: fileInputRef.current.accept,
+        hidden: fileInputRef.current.hidden,
+        id: fileInputRef.current.id,
+        className: fileInputRef.current.className,
+      } : 'N/A'
+    });
+    
+    try {
+      if (fileInputRef.current) {
+        console.log('About to click file input');
+        // Reset value to ensure onChange triggers even when selecting the same file again
+        fileInputRef.current.value = '';
+        
+        // Use a direct click approach first
+        fileInputRef.current.click();
+        console.log('Direct click called on file input');
+        
+        // Add a fallback method with a short delay
+        setTimeout(() => {
+          console.log('Fallback method: trying click again after delay');
+          if (fileInputRef.current) {
+            try {
+              // Create and dispatch a mouse event as a backup approach
+              const clickEvent = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+              });
+              fileInputRef.current.dispatchEvent(clickEvent);
+              console.log('Dispatched synthetic click event');
+            } catch (err) {
+              console.error('Error in fallback click method:', err);
+            }
+          }
+        }, 100);
+      } else {
+        console.error('File input reference is null');
+      }
+    } catch (error) {
+      console.error('Error triggering file upload:', error);
     }
   };
 
@@ -217,7 +269,17 @@ export const FullscreenEditor = ({
               type="file" 
               accept="image/*"
               onChange={handleFileInputChange}
-              hidden
+              style={{ 
+                position: 'absolute', 
+                width: '1px', 
+                height: '1px', 
+                padding: '0', 
+                margin: '-1px', 
+                overflow: 'hidden', 
+                clip: 'rect(0,0,0,0)', 
+                border: '0' 
+              }}
+              id="file-upload-input"
               ref={fileInputRef}
             />
             <button
