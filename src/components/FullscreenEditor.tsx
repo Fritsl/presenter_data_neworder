@@ -97,7 +97,12 @@ export const FullscreenEditor = ({
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('File input change event triggered');
+    console.log('File input change event triggered', {
+      hasFiles: e.target.files && e.target.files.length > 0,
+      fileCount: e.target.files?.length || 0,
+      targetElement: e.target
+    });
+
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       console.log('File selected:', {
@@ -115,6 +120,8 @@ export const FullscreenEditor = ({
       setIsUploading(true);
       setError(null);
       handleImageUpload(file);
+    } else {
+      console.log('No files selected in change event');
     }
   };
 
