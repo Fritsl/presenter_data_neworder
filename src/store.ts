@@ -376,6 +376,22 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     const projectId = urlParams.get('project');
     if (!projectId) {
       console.error('No project ID found');
+      
+      // If no project ID in URL, check if we have projects in the state
+      const { projects } = get();
+      if (projects && projects.length > 0) {
+        const firstProject = projects[0];
+        console.log('Using first available project:', firstProject.id);
+        
+        // Update URL with the first project ID
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('project', firstProject.id);
+        window.history.replaceState({}, '', newUrl.toString());
+        
+        // Continue with this project ID
+        return get().addNote(parentId);
+      }
+      
       return;
     }
 

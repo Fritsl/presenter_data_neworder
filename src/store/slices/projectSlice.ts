@@ -400,13 +400,6 @@ export const createProjectSlice: StateCreator<Store> = (set, get) => ({
           return seqA - seqB;
         });
 
-        // Sort notes based on sequence
-        const sortedNotes = notes?.sort((a, b) => {
-          const seqA = orderMap.get(a.id) || 0;
-          const seqB = orderMap.get(b.id) || 0;
-          return seqA - seqB;
-        });
-
         const noteMap = new Map(notes?.map(note => ({
           ...note,
           images: note.images?.sort((a, b) => a.position - b.position) || [],
