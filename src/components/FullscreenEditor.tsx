@@ -23,10 +23,11 @@ export const FullscreenEditor = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  
+  const { saveNote } = useNoteStore();
+
   const handleImageUpload = async (file: File) => {
     console.log('Starting image upload process', { fileName: file.name, fileSize: file.size });
-    
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       console.error('Invalid file type:', file.type);
@@ -47,13 +48,13 @@ export const FullscreenEditor = ({
     try {
       console.log('Creating FileReader instance');
       const reader = new FileReader();
-      
+
       reader.onerror = (error) => {
         console.error('FileReader error:', error);
         setError('Failed to read image file');
         setIsUploading(false);
       };
-      
+
       reader.onloadend = async () => {
         console.log('FileReader loaded successfully');
         if (!reader.result) {
@@ -77,7 +78,7 @@ export const FullscreenEditor = ({
           setIsUploading(false);
         }
       };
-      
+
       console.log('Starting file read');
       reader.readAsDataURL(file);
       console.log('File read initiated');
@@ -210,4 +211,4 @@ export const FullscreenEditor = ({
       </div>
     </div>
   );
-}
+};

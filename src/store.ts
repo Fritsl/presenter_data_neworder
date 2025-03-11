@@ -1079,8 +1079,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             images:note_images(*)
           `)
           .eq('user_id', userData.user.id)
-          .eq('project_id', firstProject.id)
-          .order('position');
+          .eq('project_id', firstProject.id);
 
         if (error) {
           throw new Error('Failed to load notes');
@@ -1206,7 +1205,6 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
             parent_id: null, // Will update in second pass
             user_id: userData.user.id,
             project_id: newProject.id,
-            position: note.position,
             is_discussion: note.is_discussion
           });
       }
