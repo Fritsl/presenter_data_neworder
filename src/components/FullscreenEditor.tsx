@@ -137,54 +137,8 @@ export const FullscreenEditor = ({
     }
   };
 
-  const triggerFileUpload = () => {
-    console.log('Triggering file input click', {
-      fileInputExists: !!fileInputRef.current,
-      fileInputType: fileInputRef.current ? typeof fileInputRef.current : 'N/A',
-      fileInputAttributes: fileInputRef.current ? {
-        type: fileInputRef.current.type,
-        accept: fileInputRef.current.accept,
-        hidden: fileInputRef.current.hidden,
-        id: fileInputRef.current.id,
-        className: fileInputRef.current.className,
-      } : 'N/A'
-    });
-    
-    try {
-      if (fileInputRef.current) {
-        console.log('About to click file input');
-        // Reset value to ensure onChange triggers even when selecting the same file again
-        fileInputRef.current.value = '';
-        
-        // Use a direct click approach first
-        fileInputRef.current.click();
-        console.log('Direct click called on file input');
-        
-        // Add a fallback method with a short delay
-        setTimeout(() => {
-          console.log('Fallback method: trying click again after delay');
-          if (fileInputRef.current) {
-            try {
-              // Create and dispatch a mouse event as a backup approach
-              const clickEvent = new MouseEvent('click', {
-                view: window,
-                bubbles: true,
-                cancelable: true,
-              });
-              fileInputRef.current.dispatchEvent(clickEvent);
-              console.log('Dispatched synthetic click event');
-            } catch (err) {
-              console.error('Error in fallback click method:', err);
-            }
-          }
-        }, 100);
-      } else {
-        console.error('File input reference is null');
-      }
-    } catch (error) {
-      console.error('Error triggering file upload:', error);
-    }
-  };
+  // Using a label with htmlFor attribute directly triggers the file input
+  // This is more reliable across browsers than programmatically clicking
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -265,31 +219,21 @@ export const FullscreenEditor = ({
             </div>
           )}
           <div className="mb-4">
-            <input 
-              type="file" 
-              accept="image/*"
-              onChange={handleFileInputChange}
-              style={{ 
-                position: 'absolute', 
-                width: '1px', 
-                height: '1px', 
-                padding: '0', 
-                margin: '-1px', 
-                overflow: 'hidden', 
-                clip: 'rect(0,0,0,0)', 
-                border: '0' 
-              }}
-              id="file-upload-input"
-              ref={fileInputRef}
-            />
-            <button
-              onClick={triggerFileUpload}
-              disabled={isUploading}
-              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <label htmlFor="file-upload-input" className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" style={{ display: 'inline-flex', cursor: 'pointer' }}>
               <ImageIcon className="w-4 h-4" />
               {isUploading ? 'Uploading...' : 'Add Image'}
-            </button>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleFileInputChange}
+                style={{ 
+                  display: 'none'
+                }}
+                id="file-upload-input"
+                ref={fileInputRef}
+                disabled={isUploading}
+              />
+            </label>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           </div>
         </div>
