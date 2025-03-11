@@ -120,8 +120,13 @@ export const FullscreenEditor = ({
 
   const triggerFileUpload = () => {
     console.log('Triggering file input click');
+    // Force a rerender of the input to ensure it's fresh
     if (fileInputRef.current) {
+      // Reset the value to ensure onChange fires even if selecting the same file
+      fileInputRef.current.value = '';
       fileInputRef.current.click();
+    } else {
+      console.error('File input reference is null');
     }
   };
 
@@ -210,6 +215,7 @@ export const FullscreenEditor = ({
               onChange={handleFileInputChange}
               className="hidden"
               ref={fileInputRef}
+              key="file-input" // Add a key to force React to re-render this component
             />
             <button
               onClick={triggerFileUpload}
