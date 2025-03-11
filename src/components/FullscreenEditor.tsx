@@ -21,7 +21,7 @@ export const FullscreenEditor = ({
   isNew = false,
 }: FullscreenEditorProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null); // Added file input ref
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const { 
@@ -120,14 +120,15 @@ export const FullscreenEditor = ({
 
   const triggerFileUpload = () => {
     console.log('Triggering file input click');
-    // Force a rerender of the input to ensure it's fresh
-    if (fileInputRef.current) {
-      // Reset the value to ensure onChange fires even if selecting the same file
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    } else {
-      console.error('File input reference is null');
-    }
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        console.log('File input found, clicking...');
+        fileInputRef.current.value = '';
+        fileInputRef.current.click();
+      } else {
+        console.error('File input reference is null');
+      }
+    }, 0);
   };
 
   useEffect(() => {
@@ -213,9 +214,8 @@ export const FullscreenEditor = ({
               type="file" 
               accept="image/*"
               onChange={handleFileInputChange}
-              className="hidden"
+              style={{ display: 'none' }}
               ref={fileInputRef}
-              key="file-input" // Add a key to force React to re-render this component
             />
             <button
               onClick={triggerFileUpload}
