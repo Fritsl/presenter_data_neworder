@@ -33,96 +33,42 @@ export const FullscreenEditor = ({
   } = useNoteStore();
 
   const handleImageUpload = async (file: File) => {
-    console.log('Starting image upload process', { fileName: file.name, fileSize: file.size });
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      console.error('Invalid file type:', file.type);
-      setError('Please select an image file');
-      return;
-    }
-
-    // Validate file size
-    if (file.size > 5 * 1024 * 1024) {
-      console.error('File too large:', file.size);
-      setError('Image size must be less than 5MB');
-      return;
-    }
-
-    setIsUploading(true);
-    setError(null);
-
     try {
-      console.log('Creating FileReader instance');
       const reader = new FileReader();
 
       reader.onerror = (error) => {
-        console.error('FileReader error:', error);
         setError('Failed to read image file');
         setIsUploading(false);
       };
 
       reader.onloadend = async () => {
-        console.log('FileReader loaded successfully');
         if (!reader.result) {
-          console.error('FileReader result is null');
           setError('Failed to read image file');
           setIsUploading(false);
           return;
         }
 
         const dataUrl = reader.result as string;
-        console.log('Data URL created, length:', dataUrl.length);
 
         try {
-          console.log('Adding image to note:', { noteId: note.id });
           await addImage(note.id, dataUrl);
-          console.log('Image added successfully');
         } catch (error) {
-          console.error('Error adding image:', error);
           setError('Failed to add image');
         } finally {
           setIsUploading(false);
         }
       };
 
-      console.log('Starting file read');
       reader.readAsDataURL(file);
-      console.log('File read initiated');
     } catch (err) {
-      console.error('Error in handleImageUpload:', err);
       setError('Failed to upload image');
       setIsUploading(false);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('File input change event triggered', {
-      event: e.type,
-      hasFiles: e.target.files && e.target.files.length > 0,
-      fileCount: e.target.files?.length || 0,
-      target: {
-        id: e.target.id,
-        name: e.target.name,
-        type: e.target.type,
-        value: e.target.value,
-        files: e.target.files ? Array.from(e.target.files).map(f => ({
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          lastModified: new Date(f.lastModified).toISOString()
-        })) : []
-      }
-    });
-
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      console.log('File selected:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        lastModified: new Date(file.lastModified).toISOString()
-      });
 
       if (!file.type.startsWith('image/')) {
         setError('Only image files are allowed');
@@ -132,13 +78,8 @@ export const FullscreenEditor = ({
       setIsUploading(true);
       setError(null);
       handleImageUpload(file);
-    } else {
-      console.log('No files selected in change event');
-    }
+    } 
   };
-
-  // Using a label with htmlFor attribute directly triggers the file input
-  // This is more reliable across browsers than programmatically clicking
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -202,14 +143,7 @@ export const FullscreenEditor = ({
                     className="w-32 h-32 object-cover rounded-lg"
                   />
                   <button
-                    onClick={() => {
-                      console.log('Image delete button clicked:', {
-                        noteId: note.id,
-                        imageId: image.id,
-                        imageUrl: image.url
-                      });
-                      removeImage(note.id, image.id)}
-                    }
+                    onClick={() => removeImage(note.id, image.id)}
                     className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X className="w-4 h-4" />
@@ -221,32 +155,16 @@ export const FullscreenEditor = ({
           <div className="mb-4">
             <button
               onClick={() => {
-                console.log('File upload button clicked');
-                // Create a new input element each time to avoid browser restrictions
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'image/*';
-                
-                // Add event listener before appending to DOM
-                input.addEventListener('change', (e) => {
-                  console.log('File input change event from dynamic element');
-                  // @ts-ignore - we know it's a file input
-                  handleFileInputChange(e);
-                });
-                
-                // Style it as hidden but don't use display:none
+                input.addEventListener('change', (e) => handleFileInputChange(e));
                 input.style.position = 'absolute';
                 input.style.opacity = '0';
                 input.style.pointerEvents = 'none';
-                
-                // Append to body, click, and remove after selection
                 document.body.appendChild(input);
                 input.click();
-                
-                // Don't remove it immediately - wait for the click to process
                 setTimeout(() => {
-                  console.log('Cleanup: Removing temporary input element');
-                  // Only remove if it hasn't been used yet (no value)
                   if (!input.value) {
                     document.body.removeChild(input);
                   }
