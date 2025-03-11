@@ -219,21 +219,45 @@ export const FullscreenEditor = ({
             </div>
           )}
           <div className="mb-4">
-            <label htmlFor="file-upload-input" className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+            <button
+              onClick={() => {
+                console.log('File upload button clicked');
+                // Create a new input element each time to avoid browser restrictions
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                
+                // Add event listener before appending to DOM
+                input.addEventListener('change', (e) => {
+                  console.log('File input change event from dynamic element');
+                  // @ts-ignore - we know it's a file input
+                  handleFileInputChange(e);
+                });
+                
+                // Style it as hidden but don't use display:none
+                input.style.position = 'absolute';
+                input.style.opacity = '0';
+                input.style.pointerEvents = 'none';
+                
+                // Append to body, click, and remove after selection
+                document.body.appendChild(input);
+                input.click();
+                
+                // Don't remove it immediately - wait for the click to process
+                setTimeout(() => {
+                  console.log('Cleanup: Removing temporary input element');
+                  // Only remove if it hasn't been used yet (no value)
+                  if (!input.value) {
+                    document.body.removeChild(input);
+                  }
+                }, 1000);
+              }}
+              disabled={isUploading}
+              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <ImageIcon className="w-4 h-4" />
               {isUploading ? 'Uploading...' : 'Add Image'}
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={handleFileInputChange}
-                style={{ 
-                  display: 'none'
-                }}
-                id="file-upload-input"
-                ref={fileInputRef}
-                disabled={isUploading}
-              />
-            </label>
+            </button>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           </div>
         </div>
