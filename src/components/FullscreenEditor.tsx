@@ -120,15 +120,11 @@ export const FullscreenEditor = ({
 
   const triggerFileUpload = () => {
     console.log('Triggering file input click');
-    setTimeout(() => {
-      if (fileInputRef.current) {
-        console.log('File input found, clicking...');
-        fileInputRef.current.value = '';
-        fileInputRef.current.click();
-      } else {
-        console.error('File input reference is null');
-      }
-    }, 0);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      console.error('File input reference is null');
+    }
   };
 
   useEffect(() => {
@@ -214,7 +210,7 @@ export const FullscreenEditor = ({
               type="file" 
               accept="image/*"
               onChange={handleFileInputChange}
-              style={{ display: 'none' }}
+              hidden
               ref={fileInputRef}
             />
             <button
