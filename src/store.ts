@@ -367,6 +367,24 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     });
   },
 
+  toggleEdit: (id: string) => {
+    set(state => {
+      const toggleEditMode = (notes: Note[]): Note[] => {
+        return notes.map(note => {
+          if (note.id === id) {
+            return { 
+              ...note, 
+              isEditing: !note.isEditing,
+              unsavedContent: note.unsavedContent === undefined ? note.content : note.unsavedContent
+            };
+          }
+          return { ...note, children: toggleEditMode(note.children) };
+        });
+      };
+      return { notes: toggleEditMode(state.notes) };
+    });
+  },
+
   toggleDiscussion: async (id: string, value: boolean) => {
     try {
       const { error } = await supabase
@@ -395,6 +413,39 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Error toggling discussion flag:', error);
+    }
+  },
+
+  saveNote: async (id: string) => {
+    try {
+      const note = findNoteById(get().notes, id);
+      if (!note || note.unsavedContent === undefined) return;
+
+      const { error } = await supabase
+        .from('notes')
+        .update({ content: note.unsavedContent })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      set(state => {
+        const saveNoteContent = (notes: Note[]): Note[] => {
+          return notes.map(note => {
+            if (note.id === id) {
+              return { 
+                ...note, 
+                content: note.unsavedContent || note.content,
+                unsavedContent: undefined,
+                isEditing: false
+              };
+            }
+            return { ...note, children: saveNoteContent(note.children) };
+          });
+        };
+        return { notes: saveNoteContent(state.notes) };
+      });
+    } catch (error) {
+      console.error('Error saving note:', error);
     }
   },
 
@@ -724,6 +775,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         error
       });
     }
+  },
+  
+  printNotes: () => {
+    return formatNotesAsText(get().notes);
   },
 
   loadProjects: async () => {

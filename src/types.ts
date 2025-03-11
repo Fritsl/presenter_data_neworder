@@ -70,4 +70,5 @@ export type NoteStore = {
   removeImage: (noteId: string, imageId: string) => Promise<void>;
   printNotes: () => string;
   saveNote: (id: string) => Promise<void>;
+  toggleDiscussion: (id: string, value: boolean) => Promise<void>;
 };
